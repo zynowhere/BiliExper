@@ -1,12 +1,6 @@
 <div align="center"> 
-<h1 align="center">
-BiliExp
-</h1>
-
-![image](https://user-images.githubusercontent.com/67217225/96542531-d6bcdb80-12d4-11eb-81e1-49f3d3b85dfe.png)
 <br>
-[![](https://img.shields.io/badge/author-%E6%98%9F%E8%BE%B0-red "作者")](https://github.com/happy888888/ )
-![](https://img.shields.io/badge/dynamic/json?label=GitHub%20Followers&query=%24.data.totalSubs&url=https%3A%2F%2Fapi.spencerwoo.com%2Fsubstats%2F%3Fsource%3Dgithub%26queryKey%3Dhappy888888&labelColor=282c34&color=181717&logo=github&longCache=true "关注数量")
+
 <br>
 ![](https://img.shields.io/github/stars/happy888888/BiliExp.svg?style=plastic&logo=appveyor "Star数量")
 ![](https://img.shields.io/github/forks/happy888888/BiliExp.svg?style=plastic&logo=stackshare "Fork数量")
