@@ -1,17 +1,5 @@
 <div align="center"> 
 
-
-<br>
-![](https://img.shields.io/github/stars/happy888888/BiliExp.svg?style=plastic&logo=appveyor "Star数量")
-![](https://img.shields.io/github/forks/happy888888/BiliExp.svg?style=plastic&logo=stackshare "Fork数量")
-[![](https://img.shields.io/badge/LICENCE-SATA-BLUE.svg?style=plastic "协议")](https://github.com/zTrix/sata-license)
-![](https://img.shields.io/badge/python->=3.6-GREEN.svg?style=social "python版本")
-![](https://img.shields.io/github/contributors/happy888888/BiliExp "贡献者")
-![](https://img.shields.io/github/downloads/happy888888/BiliExp/total?style=flat-square "下载量")
-<br>
-![](https://img.shields.io/docker/pulls/happy888888/biliexp?color=purple "docker拉取数")
-![](https://img.shields.io/docker/image-size/happy888888/biliexp "docker镜像大小")
-
 </div>
 
 
