@@ -63,13 +63,12 @@
 - [目录](#目录)
 - [使用说明(仅自动操作脚本部分)](#使用方式仅自动操作脚本部分)
   - [零、部分功能推荐配置](https://github.com/happy888888/BiliExp/issues/178)
-  - [一、只使用Actions(推荐)](#方式一推荐只使用github-actions)
-  - [二、使用腾讯云函数(Actions部署)](#方式二使用腾讯云函数)
-  - [三、使用阿里云函数(Actions部署)(不推荐)](#方式三不推荐使用阿里云函数)
-  - [四、windows本地部署(依靠任务计划启动)](#方式四windows本地部署)
-  - [五、linux本地部署(依靠crontab启动,shell自动下载安装)](#方式五linux本地部署)
-  - [六、docker部署](#方式六docker安装)
-  - [七、openwrt等路由器部署](#方式七openwrt等路由器部署)
+  - [一、使用腾讯云函数(Actions部署)](#方式二使用腾讯云函数)
+  - [二、使用阿里云函数(Actions部署)(不推荐)](#方式三不推荐使用阿里云函数)
+  - [三、windows本地部署(依靠任务计划启动)](#方式四windows本地部署)
+  - [四、linux本地部署(依靠crontab启动,shell自动下载安装)](#方式五linux本地部署)
+  - [五、docker部署](#方式六docker安装)
+  - [六、openwrt等路由器部署](#方式七openwrt等路由器部署)
 - [使用说明(下载器部分)](#使用方式下载器部分)
 - [使用说明(视频投稿部分)](#使用说明视频投稿部分)
 - [使用说明(专栏、视频和音频的发表,面向开发者)](/机器人up主#python实现B站发布专栏视频和音频的方法)
@@ -91,68 +90,7 @@
 
 ***详细配置文件在/config/config.json，云函数部署后在/src/config/config.json，Actions上应使用secrets，如不修改则使用默认配置***
 
-### 方式一(推荐)、只使用github Actions
-* 1.准备
-    *  1.1 一个或多个B站账号，以及登录后获取的SESSDATA，bili_jct，DedeUserID (获取方式见下方示意图)
-	   `浏览器打开B站主页--》按F12打开开发者工具--》application--》cookies`
-	   
-       <div align="center"><img src="https://s1.ax1x.com/2020/09/23/wjM09e.png" width="800" height="450" title="获取cookies示例"></div>
-    *  1.2 fork本项目
-	   本步骤目的是将Actions Workflow文件(.github/workflows/run_BiliExp.yml)文件放到你自己的仓库，当然你也可以不fork直接新建一个仓库将***.github/workflows/run_BiliExp.yml***文件放进去(路径保持一致)，如果这样做请不要跳过步骤3
-* 2.部署
-    *  2.1 在fork后的github仓库(或者你新建的存放run_BiliExp.yml的仓库)的 “Settings” --》“Secrets” 中添加"Secrets"，name(不用在意大小写)和value分别为：
-        *  2.1.1 name为"biliconfig"           value为B站账号登录信息(可多个)，格式如下
-        ```
-        SESSDATA(账号1)
-        bili_jct(账号1)
-        uid(账号1)
-		uid(账号2)
-		bili_jct(账号2)
-		SESSDATA(账号2)
-		(多个账户继续加在后面，不用考虑每个账号三个参数的先后顺序)
-        ```
-        例如下面这样(例子为两个账号)
-        ```
-        e1272654%vfdawi241825%2C8dc06*a1
-        0a9081cc53856314783d195f5ddbadf3
-        203953353
-        
-        2035453
-        dfs425cc53856351d4d5195f5ddbakb2
-        e1412354%afdoii534825%2Cbbc06*a1
-        ```
-		注：每行一个cookie项(SESSDATA bili_jct uid或者空行)，***不规定顺序***但必须一个账户三个参数填完才能开始填下一个账户的参数
-		![image](https://user-images.githubusercontent.com/67217225/98549976-73700900-22d6-11eb-9356-22802456da50.png)
-        *  2.1.2 (可选)name为"push_message"           value为推送SCKEY或email或telegramBot_token或SKEY用于消息推送，格式如下
-        ```
-        SCU10xxxxxxxxxxxxxxxd547519b62d027xxxxxxxxx20f3578cbe6
-		example@qq.com
-		1443793198:AAEI9TGazdrj4Jh6X6B7CvuAKX4IivEb450,1459469720
-		efa28782a2b4a7b25daz12f7d595ae26
-        ```
-		注：每行一个推送参数(SCKEY email telegramBot_token SKEY或者空行)，***可以同时提供多个或不提供SCKEY或email或telegramBot_token或SKEY，填写后会同时推送***,<br>
-		***使用telegramBot的注意，除了填写token,还要填写chat_id,在同一行用逗号隔开***,比如例子提供的意思是telegram token为`1443793198:AAEI9TGazdrj4Jh6X6B7CvuAKX4IivEb450`,chat_id为`1459469720`,<br>
-		***SCKEY来自server酱(微信推送)，email为你的邮箱，SKEY来自酷推(QQ推送)***
-        *  2.1.3 (可选)name为"advconfig"           value为/config/config.json文件的所有内容(直接复制粘贴整个文件)
-		***此项为详细配置文件，可配置所有细节参数，可直接替代前两个secrets也可以与前两个secrets共同使用，注意此项不存在时直接使用默认配置***<br>
-		如果使用***天选时刻***，***风纪委员投票***和 ***直播心跳(获取小心心)*** 功能可参考 [部分功能推荐配置](https://github.com/happy888888/BiliExp/issues/178)
-    *  2.2 添加完上面的"Secrets"后，进入"Actions" --》"run BiliExp"，点击右边的"Run workflow"即可第一次启动
-        *  2.2.1 首次fork可能要去actions(正上方的actions不是Settings里面的actions)里面同意使用actions条款，如果"Actions"里面没有"run BiliExp"，点一下右上角的"star"，"run BiliExp"就会出现在"Actions"里面(先按照主分支说明切换分支否则找不到对应的Actions)
-		![image](https://user-images.githubusercontent.com/67217225/98933791-16659480-251c-11eb-9713-c3dbcc6321bf.png)
-		![image](https://user-images.githubusercontent.com/67217225/98934269-c935f280-251c-11eb-8bce-b8fa04c68cb8.png)
-        *  2.2.2 第一次启动后，脚本会每天12:00自动执行，不需要再次手动执行(第一次手动执行这个步骤不能忽略)。
-* 3.其他secrets
-    *  3.1 repository
-	   (可选)仓库名称，指定Actions执行时从哪个仓库获取代码，此项不存在时默认为你自己的仓库(也就是fork后的仓库)，也可以填写我的仓库`happy888888/BiliExp`
-    *  3.2 ref
-	   (可选)仓库分支名称或者sha，指定Actions执行时从仓库的哪个分支获取代码，此项不存在时默认为仓库默认分支的最新一次提交，也可以填写`master`
-	```
-	这两个secrets是用来当Actions和代码不在同一个仓库里使用的
-	可以将 .github/workflows/run_BiliExp.yml 文件放到其他仓库里执行而不是fork本仓库
-	当然fork本身是携带代码的，不需要配置这两个secrets即可使用
-	```
-
-### 方式二、使用腾讯云函数
+### 方式一、使用腾讯云函数
 
 * 1.准备
 * 1.1开通云函数 SCF 的腾讯云账号，在[访问秘钥页面](https://console.cloud.tencent.com/cam/capi)获取账号的 TENCENT_SECRET_ID，TENCENT_SECRET_KEY
@@ -170,7 +108,7 @@
     *  2.2.1 首次fork可能要去actions里面同意使用actions条款，如果"Actions"里面没有"deploy for serverless"，点一下右上角的"star"，"deploy for serverless"就会出现在"Actions"里面
     *  2.2.2 部署完成后一定要去云函数控制台将账号cookie填写到/config/config.json文件中
 
-### 方式三(不推荐)、使用阿里云函数
+### 方式二(不推荐)、使用阿里云函数
 
 目前有发现在Actions内无法ping通阿里云函数的域名，部署可能出现超时现象
 
@@ -185,7 +123,7 @@
 		![image](https://user-images.githubusercontent.com/67217225/96539780-7aef5400-12ce-11eb-9af6-696286a44885.png)
     *  2.2这里直接参考[腾讯云函数部署步骤](#方式二使用腾讯云函数)中的2.2步骤
 
-### 方式四、windows本地部署
+### 方式三、windows本地部署
 
 * 1.准备
     *  1.1一个或多个B站账号，以及登录后获取的SESSDATA，bili_jct，DedeUserID ([获得B站账户cookies方法](#获得cookies方法))
