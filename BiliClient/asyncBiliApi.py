@@ -13,7 +13,7 @@ else:
     enc_server = 'https://1578907340179965.cn-shanghai.fc.aliyuncs.com/2016-08-15/proxy/bili_server/heartbeat/'
 
 class asyncBiliApi(object):
-    '''B站异步接口类'''
+    '''B站异步接口类'''  
     def __init__(self):
 
         headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/63.0.3239.108","Referer": "https://www.bilibili.com/",'Connection': 'keep-alive'}
