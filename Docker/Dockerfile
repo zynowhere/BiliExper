@@ -10,3 +10,4 @@ RUN apk add --no-cache build-base libffi-dev \
 COPY entrypoint.sh ./entrypoint.sh
 
 ENTRYPOINT ["./entrypoint.sh"]
+
