@@ -29,6 +29,7 @@ class DownloadResult(object):
 class MangaDownloader(object):
     '''B站漫画下载类'''
 
+    
     DownloadCode = DownloadCode
     login_by_cookie = bili.login_by_cookie
     login_by_access_token = bili.login_by_access_token
