@@ -5,125 +5,182 @@ __all__ = (
 
 from . import bili
 from requests.sessions import Session
-from typing import Iterable, Union
+from typing import Iterable, Generator, List, Union, Dict, Any
 import os, re
+from enum import Enum
+
+class DownloadCode(Enum):
+    Ok     =  0
+    Error  =  1
+    Locked =  2
+
+class DownloadResult(object):
+    def __init__(self, 
+                 code: DownloadCode, 
+                 ep_id: int, 
+                 title: str, 
+                 name: str
+                 ):
+        self.code = code
+        self.ep_id = ep_id
+        self.title = title
+        self.name = name
 
 class MangaDownloader(object):
-    "B站漫画下载类"
-    def __init__(self, comic_id=0, cookieData: dict = None):
+    '''B站漫画下载类'''
 
+    DownloadCode = DownloadCode
+    login_by_cookie = bili.login_by_cookie
+    login_by_access_token = bili.login_by_access_token
+    login_by_password = bili.login_by_password
+    access_token = bili.access_token
+    refresh_token = bili.refresh_token
+    SESSDATA = bili.SESSDATA
+    bili_jct = bili.bili_jct
+
+    def __init__(self, 
+                 comic_id: int = 0
+                 ):
+        '''
+        comic_id    int   漫画id
+        '''
         bili.__init__(self)
-        if cookieData:
-            bili.login_by_cookie(self, cookieData)
-
         if comic_id:
-            self._manga_detail = bili.mangaDetail(self, comic_id)["data"]
-            self._comic_id = self._manga_detail["id"]
-            self._manga_detail["ep_list"].sort(key=lambda elem: elem["ord"])
+            self.setComicId(comic_id)
         else:
             self._manga_detail = None
 
-    def login_by_cookie(self, cookieData: dict) -> bool:
-        '''使用cookie登录'''
-        return bili.login_by_cookie(self, cookieData)
-
-    def setComicId(comic_id: int):
-        "设置当前漫画id"
+    def setComicId(self, comic_id: int) -> None:
+        '''
+        设置当前漫画id
+        comic_id    int   漫画id
+        '''
         self._manga_detail = bili.mangaDetail(self, comic_id)["data"]
         self._comic_id = self._manga_detail["id"]
         self._manga_detail["ep_list"].sort(key=lambda elem: elem["ord"])
+        self._chapters = {x["id"]:x for x in self._manga_detail["chapters"]}
 
-    def getIndex(self):
-        "获取漫画章节列表"
+    def getIndex(self) -> List[Dict[str, Any]]:
+        '''获取漫画章节数据(列表)'''
         return self._manga_detail["ep_list"]
 
-    def getTitle(self):
-        "获取漫画名称"
-        return self._manga_detail["title"]
+    def getTitle(self) -> str:
+        '''获取漫画名称'''
+        return re.sub('[\/:*?"<>|]', '', self._manga_detail["title"]).strip()
 
-    def getAuthors(self):
-        "获取漫画作者名称(数组)"
+    def getAuthors(self) -> List[str]:
+        '''获取漫画作者名称'''
         return self._manga_detail["author_name"]
 
-    def getCover(self):
-        "获取漫画封面图片链接"
+    def getCover(self) -> str:
+        '''获取漫画封面图片链接'''
         return self._manga_detail["vertical_cover"]
 
-    def getNum(self):
-        "获取漫画章节数量"
-        return self._manga_detail["last_ord"]
+    def getNum(self) -> int:
+        '''获取漫画章节数量'''
+        return len(self._manga_detail["ep_list"])
 
-    def getDownloadList(self, ep_id: int):
-        "获取漫画章节下载列表"
-        data = bili.mangaImageIndex(self, ep_id)["data"]["images"]
+    def getDownloadList(self, 
+                        ep_id: int
+                        ) -> List[str]:
+        '''
+        获取漫画章节中所有图片的真实url
+        ep_id  int  章节id
+        '''
+        data = bili.mangaImageIndex(self, ep_id)["data"]["images"]   #获取一个章节的所有图片网址
         url_list = [x["path"] for x in data]
-        data = bili.mangaImageToken(self, url_list)["data"]
-        url_list = [f'{x["url"]}?token={x["token"]}' for x in data]
-        return url_list
+        data = bili.mangaImageToken(self, url_list)["data"]          #通过图片网址获得图片token
+        return [f'{x["url"]}?token={x["token"]}' for x in data]      #将图片网址和token拼接在一起组合成真实网址
 
-    def downloadEp(self, ep_id: int, path: str):
-        "下载一个章节"
+    def _isLocked(self, ep_data: Dict[str, Any]) -> bool:
+        '''
+        判断漫画是否被锁定
+        ep_data dict 漫画数据
+        '''
+        if ep_data.get("is_locked", True):
+            if ep_data["chapter_id"] != 0 and ep_data["chapter_id"] in self._chapters:
+                return self._chapters[ep_data["chapter_id"]].get("is_locked", True)
+            return True
+        return False
+
+    def downloadEp(self, 
+                   ep_id: int, 
+                   path: str = "."
+                   ) -> None:
+        '''
+        下载一个章节
+        ep_id  int      章节id
+        path   str      下载储存文件夹路径
+        '''
         if not os.path.exists(path):
             os.mkdir(path)
 
-        _s = Session()
         _list = self.getDownloadList(ep_id)
+
         for ii in range(len(_list)):
-            try:
-                with open(os.path.join(path, f'{ii+1:0>2}.jpg'), 'wb') as f:
-                    f.write(_s.get(_list[ii]).content)
-            except Exception as e:
-                print(f'在{path}下写入{ii+1:0>2}.jpg时异常', repr(e))
+            with open(os.path.join(path, f'{ii+1:0>2}.jpg'), 'wb') as f:
+                f.write(self._session.get(_list[ii]).content)
 
-        _s.close()
-
-    def downloadIndexes(self, index: Union[int, Iterable[int]], path: str):
-        "下载章节序号,序号从0开始"
-        title = re.sub('[\/:*?"<>|]','',self.getTitle())
-        path = os.path.join(path, title)
+    def downloadIndexes(self, 
+                        index: Union[int, Iterable[int]], 
+                        path: str
+                        ) -> Generator[DownloadResult, None, None]:
+        '''
+        下载指定序号对应的章节
+        index  int,Iterable[int]  下载章节序号或序号列表,序号从0开始
+        path   str                下载储存文件夹路径
+        '''
+        path = os.path.join(path, self.getTitle())
         if not os.path.exists(path):
             os.makedirs(path)
         
         bq = len(str(self.getNum()))
         mlist = self.getIndex()
+
+        if isinstance(index, int):
+            index = list(index)
+
         if isinstance(index, Iterable):
-            for x in index:
-                name = re.sub('[\/:*?"<>|]','', mlist[x]["title"])
-                if name.replace(' ', '') == '':
-                    name = mlist[x]["short_title"]
-                if not mlist[x]["is_locked"]:
-                    self.downloadEp(mlist[x]['id'], os.path.join(path, f'{mlist[x]["ord"]:0>{bq}}-{name}'))
-                    print(f'{mlist[x]["ord"]:0>{bq}}-{name} 下载完成')
+            for ii in index:
+                title = re.sub('[\/:*?"<>|]','', mlist[ii]["title"]).strip()
+                if title.replace(' ', '') == '':
+                    title = mlist[ii]["short_title"]
+                name = f'{mlist[ii]["ord"]:0>{bq}}-{title}'
+                if not self._isLocked(mlist[ii]):
+                    try:
+                        self.downloadEp(mlist[ii]['id'], os.path.join(path, name))
+                    except:
+                        yield DownloadResult(DownloadCode.Error, mlist[ii]['id'], title, name)
+                    else:
+                        yield DownloadResult(DownloadCode.Ok, mlist[ii]['id'], title, name)
                 else:
-                    print(f'{mlist[x]["ord"]:0>{bq}}-{name} 目前需要解锁')
-
-        elif isinstance(index, int) and index < len(mlist):
-            name = re.sub('[\/:*?"<>|]','', mlist[index]["title"])
-            if name.replace(' ', '') == '':
-                name = x["short_title"]
-            if not x["is_locked"]:
-                self.download(mlist[index]['id'], os.path.join(path, f'{mlist[index]["ord"]:0>{bq}}-{name}'))
-                print(f'{mlist[index]["ord"]:0>{bq}}-{name} 下载完成')
-            else:
-                print(f'{mlist[index]["ord"]:0>{bq}}-{name} 目前需要解锁')
-
+                    yield DownloadResult(DownloadCode.Locked, mlist[ii]['id'], title, name)
         else:
-            raise ValueError('index必须为整数或可迭代类型')
+            raise ValueError('index必须为整数或整数可迭代类型')
 
-    def downloadAll(self, path):
-        "下载漫画所有可下载章节"
-        title = re.sub('[\/:*?"<>|]','',self.getTitle())
-        path = os.path.join(path, title)
+    def downloadAll(self, 
+                    path: str
+                    ) -> Generator[DownloadResult, None, None]:
+        '''
+        下载漫画所有章节
+        path   str                下载储存文件夹路径
+        '''
+        path = os.path.join(path, self.getTitle())
         if not os.path.exists(path):
             os.makedirs(path)
         
         bq = len(str(self.getNum()))
         for x in self.getIndex():
-            name = re.sub('[\/:*?"<>|]','', x["title"])
-            if name.replace(' ', '') == '':
-                name = x["short_title"]
-            if not x["is_locked"]:
-                self.downloadEp(x['id'], os.path.join(path, f'{x["ord"]:0>{bq}}-{name}'))
-                print(f'{x["ord"]:0>{bq}}-{name} 下载完成')
+            title = re.sub('[\/:*?"<>|]','', x["title"]).strip()
+            if title.replace(' ', '') == '':
+                title = x["short_title"]
+            name = f'{x["ord"]:0>{bq}}-{title}'
+            if not self._isLocked(x):
+                try:
+                    self.downloadEp(x['id'], os.path.join(path, name))
+                except:
+                    yield DownloadResult(DownloadCode.Error, x['id'], title, name)
+                else:
+                    yield DownloadResult(DownloadCode.Ok, x['id'], title, name)
             else:
-                print(f'{x["ord"]:0>{bq}}-{name} 目前需要解锁')
+                yield DownloadResult(DownloadCode.Locked, x['id'], title, name)
