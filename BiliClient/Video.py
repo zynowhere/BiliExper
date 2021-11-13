@@ -1,18 +1,23 @@
 
 __all__ = (
-    "VideoUploader",
+    "VideoUploaderWeb",
+    "VideoUploaderApp",
     "VideoParser"
 )
 
 from . import bili
 import os, math, time, base64, re
+from hashlib import md5
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+from typing import Union, List
 
-class VideoUploader(object):
-    '''B站视频上传类'''
+class VideoUploaderWeb(object):
+    '''B站视频上传类(模拟网页端)'''
+    login_by_password = bili.login_by_password
+    login_by_cookie = bili.login_by_cookie
+
     def __init__(self, 
-                 cookieData: dict, 
                  title: str = "", 
                  desc: str = "", 
                  dtime: int = 0, 
@@ -25,22 +30,18 @@ class VideoUploader(object):
                  subtitle = {"open":0,"lan":""}
                  ):
         '''
-        创建一个B站视频上传类
-        cookieData     dict  账户cookie
         title          str   稿件标题
         desc           str   稿件简介
         dtime          int   延迟发布时间,最短4小时后,10位时间戳
-        copyright      list  是否原创,原创取1,转载取2
+        tag            list  标签列表
+        copyright      int   是否原创,原创取1,转载取2
         tid            int   稿件分区id,默认为174,生活其他分区
         source         str   非原创时需提供转载来源网址
-        cover          str   稿件封面,图片url
+        cover          str   稿件封面,图片url而非本地路径
         desc_format_id int
         subtitle       dict
         '''
         bili.__init__(self)
-        if not bili.login_by_cookie(self, cookieData):
-            raise ValueError('cookie无效')
-
         self._data = {
             "copyright":copyright,
             "videos":[],
@@ -168,7 +169,7 @@ class VideoUploader(object):
         gt = retobj["data"]["gt"]
         return (self.videoDelete(self, aid, challenge, gt, f'{gt}%7Cjordan')["code"] == 0)
 
-    def recovers(self, 
+    def getRecovers(self, 
                  upvideo: dict
                  ) -> list:
         '''
@@ -301,8 +302,148 @@ class VideoUploader(object):
         '''
         self._data["subtitle"] = subtitle
 
+class VideoUploaderApp(object):
+    '''B站视频上传类(模拟APP端)'''
+    login_by_access_token = bili.login_by_access_token
+    login_by_password = bili.login_by_password
+    access_token = bili.access_token
+    refresh_token = bili.refresh_token
+
+    def __init__(self, 
+                 title: str = "", 
+                 desc: str = "",
+                 dtime: int = 0, 
+                 tag: list = [], 
+                 copyright: int = 2, 
+                 tid: int = 174, 
+                 source: str = "", 
+                 cover: str = "",
+                 ):
+        '''
+        title          str   稿件标题
+        desc           str   稿件简介
+        dtime          int   延迟发布时间,最短4小时后,10位时间戳
+        tag            list  标签列表
+        copyright      int   是否原创,原创取1,转载取2
+        tid            int   稿件分区id,默认为174,生活其他分区
+        source         str   非原创时需提供转载来源网址
+        cover          str   稿件封面,图片url而非本地路径
+        '''
+        bili.__init__(self)
+        self._data = {
+            "build": 1006,
+            "copyright": copyright,
+            "cover": cover,
+            "desc": desc,
+            "no_reprint": 0,
+            "open_elec": 1,
+            "source": source,
+            "tag": "",
+            "tid": tid,
+            "title": title,
+            "videos":[]
+            }
+        if dtime and dtime - int(time.time()) > 14400:
+            self._data["dtime"] = dtime
+
+    def uploadFileOneThread(self, 
+                            filepath: str, 
+                            fsize: int = 2097152
+                            ) -> dict:
+        '''
+        单线程上传本地视频文件,返回视频信息
+        filepath  str  视频路径
+        fsize     int  视频分块大小,默认为2097152,没有必要请勿修改
+        '''
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(filepath)
+        path, name = os.path.split(filepath)#分离路径与文件名
+        preffix = os.path.splitext(name)[0]
+
+        pre = bili.videoPreuploadApp(self) #申请上传
+        assert pre["OK"] == 1
+
+        m5 = md5()
+        with open(filepath, 'rb') as f: 
+            size = f.seek(0, 2) #获取文件大小
+            chunks = math.ceil(size / fsize) #获取分块数量
+            #开始上传
+            f.seek(0, 0)
+            for i in range(chunks): #单线程分块上传
+                data = f.read(fsize) #一次读取一个分块大小
+                m5.update(data)
+                assert 1 == bili.videoUploadApp(self, pre["url"], name, data, md5(data).hexdigest(), i+1, chunks)["OK"] #上传分块
+
+        assert 1 == bili.videoUploadCompleteApp(self, pre["complete"], name, size, m5.hexdigest(), chunks)["OK"]
+
+        return {"title": os.path.splitext(name)[0], "filename": pre["filename"], "desc": ""}
+
+    def uploadCover(self, 
+                    filepath: str
+                    ) -> str:
+        '''
+        上传本地图片文件,返回图片url
+        filepath str 本地图片路径
+        '''
+        with open(filepath,'rb') as f:
+            ret = bili.videoUpcoverApp(self, f)
+        
+        assert 0 == ret["code"]
+        return ret["data"]["url"]
+
+    def submit(self) -> dict:
+        '''提交视频'''
+        if not self._data["videos"][0]["title"]:
+            raise ValueError("提交的视频列表为空")
+
+        if self._data["title"] == "":
+            self._data["title"] = self._data["videos"][0]["title"]
+
+        return bili.videoAddApp(self, self._data)
+
+    def setTag(self, 
+               tag: list = []
+               ) -> None:
+        '''
+        设置标签
+        tag list 标签字符串列表
+        '''
+        self._data["tag"] = ",".join(tag)
+
+    def getTags(self) -> list:
+        '''返回官方推荐的tag列表'''
+        ret = bili.videoTagsApp(self, self._data["title"], self._data["tid"], self._data["desc"])
+        assert 0 == ret["code"]
+        return ret["data"]["tags"]
+
+    #将VideoUploader内可以复用的方法导入到本类
+    add = VideoUploaderWeb.add
+    clear = VideoUploaderWeb.clear
+    setTitle = VideoUploaderWeb.setTitle
+    setCover = VideoUploaderWeb.setCover
+    setCopyright = VideoUploaderWeb.setCopyright
+    setDesc = VideoUploaderWeb.setDesc
+    setTid = VideoUploaderWeb.setTid
+    setDtime = VideoUploaderWeb.setDtime
+    setSource = VideoUploaderWeb.setSource
+
 class _videoStream(object):
-    def __init__(self, name: str,url: str, resolution: str, size: int, cid: int):
+    '''视频流信息类'''
+    def __init__(self, 
+                 name: str, 
+                 url: str, 
+                 resolution: str, 
+                 size: int, 
+                 cid: int
+                 ):
+        '''
+        name       str  视频流(文件)名称
+        url        str  视频流真实地址
+        bvid       str  稿件bv号
+        resolution str  视频分辨率
+        size       int  视频大小
+        cid        int  视频cid，同一个稿件不同分P的bv号相同cid不同
+        '''
         self._name = name
         self._url = url
         self._resolution = resolution
@@ -331,11 +472,24 @@ class _videoStream(object):
         return self._cid
 
 class _videos(object):
-    def __init__(self, subtitle, bvid='', cid=0, epid=''):
-        self._title = subtitle.replace('/',' ')
+    '''视频信息，视频地址解析类'''
+    def __init__(self, 
+                 subtitle: str, 
+                 bvid: str, 
+                 cid: int, 
+                 biliapi: bili
+                 ):
+        '''
+        subtitle  str  视频标题(分P视频)
+        bvid      str  稿件bv号
+        cid       int  视频cid，同一个稿件不同分P的bv号相同cid不同
+        biliapi   bili B站会话接口类的实例
+        '''
+        self._title = re.sub('[\/:*?"<>|]','', subtitle).strip()
         self._bvid = bvid
         self._cid = cid
-
+        self._api = biliapi
+    
     def __repr__(self):
         return f'<title={self._title};bvid={self._bvid};cid={self._cid}>'
 
@@ -346,40 +500,37 @@ class _videos(object):
         '''获取当前视频标题'''
         return self._title
 
-    def allStream(self, cookieData: dict = None, reverse_proxy='', force_use_proxy=False):
+    def allStream(self, 
+                  reverse_proxy='', 
+                  force_use_proxy=False
+                  ):
         '''
-        获取所有视频流
-        cookieData dict :包含"SESSDATA"值的字典，模拟用户登录
-        reverse_proxy str :B站接口代理地址
-        force_use_proxy bool :强制使用代理地址(默认请求失败才尝试代理地址)
+        获取当前视频所有流
+        reverse_proxy   str   B站接口代理地址
+        force_use_proxy bool  强制使用代理地址(默认请求失败才尝试代理地址)
         '''
-        biliapi = bili()
-        if cookieData:
-            biliapi.login_by_cookie(cookieData)
-
         if force_use_proxy:
             RP = reverse_proxy
-            data = biliapi.playerUrl(cid=self._cid, bvid=self._bvid, reverse_proxy=RP)
+            data = self._api.playerUrl(cid=self._cid, bvid=self._bvid, reverse_proxy=RP)
             if data["code"] != 0:
                 raise Exception(f'解析失败，请尝试使用会员账号(错误信息：{data["message"]})')
         else:
             RP = ''
-            data = biliapi.playerUrl(cid=self._cid, bvid=self._bvid, reverse_proxy=RP)
+            data = self._api.playerUrl(cid=self._cid, bvid=self._bvid, reverse_proxy=RP)
             if data["code"] != 0:
                 if reverse_proxy == '':
                     raise Exception(f'解析失败，请尝试使用代理或会员账号(错误信息：{data["message"]})')
                 else:
                     RP = reverse_proxy
-                    data = biliapi.playerUrl(cid=self._cid, bvid=self._bvid, reverse_proxy=RP)
+                    data = self._api.playerUrl(cid=self._cid, bvid=self._bvid, reverse_proxy=RP)
                     if data["code"] != 0:
-                        print(self._bvid, self._cid)
                         raise Exception(f'解析失败，请尝试更换代理地区或使用会员账号(错误信息：{data["message"]})')
         
         accept_quality = data["data"]["accept_quality"]
         accept_description = data["data"]["accept_description"]
         ret = []
         for ii in range(len(accept_quality)):
-            data = biliapi.playerUrl(cid=self._cid, bvid=self._bvid, qn=accept_quality[ii], reverse_proxy=RP)["data"]
+            data = self._api.playerUrl(cid=self._cid, bvid=self._bvid, qn=accept_quality[ii], reverse_proxy=RP)["data"]
             if data["quality"] != accept_quality[ii]:
                 continue
             if 'flv' in data["format"]:
@@ -389,18 +540,33 @@ class _videos(object):
         return ret
 
 class VideoParser(object):
-    '''B站视频解析类'''
+    '''B站视频稿件解析类'''
 
-    def __init__(self, url: str):
-        self.parser(url)
+    def __init__(self, 
+                 url: str = '', 
+                 biliapi: bili = None
+                 ):
+        '''
+        url      str  视频链接
+        biliapi  bili B站会话接口类的实例
+        '''
+        if biliapi:
+            self._isOwner = False
+            self._api = biliapi
+        else:
+            self._isOwner = True
+            self._api = bili()
+        
+        if url:
+            self.parser(url)
 
-    def all(self):
+    def all(self) -> List[_videos]:
         '''取得当前所有视频(分P)'''
         if self._type == 1:
-            list = bili.playList(self._bvid)["data"]
-            return [_videos(x["part"], self._bvid, x["cid"]) for x in list]
+            list = self._api.playList(self._bvid)["data"]
+            return [_videos(x["part"], self._bvid, x["cid"], self._api) for x in list]
         elif self._type == 2:
-            return [_videos(x[0], x[1], x[2]) for x in self._eplist]
+            return [_videos(x[0], x[1], x[2], self._api) for x in self._eplist]
         else:
             return []
 
@@ -414,14 +580,14 @@ class VideoParser(object):
         if len(find):
             if find[0][0] == 'BV':
                 self._bvid = f'BV{find[0][1]}'
-                self._title = bili.webView(self._bvid)["data"]["title"]
+                self._title = self._api.webView(self._bvid)["data"]["title"]
                 self._type = 1
             elif find[0][0] == 'av':
-                self._bvid = bili.av2bv(int(find[0][1]))
-                self._title = bili.webView(self._bvid)["data"]["title"]
+                self._bvid = self._api.av2bv(int(find[0][1]))
+                self._title = self._api.webView(self._bvid)["data"]["title"]
                 self._type = 1
             elif find[0][0] == 'ep' or find[0][0] == 'ss':
-                data = bili.epPlayList(find[0][0] + find[0][1])
+                data = self._api.epPlayList(find[0][0] + find[0][1])
                 self._title = data["mediaInfo"]["title"]
                 self._eplist = [[f'{x["titleFormat"]} {x["longTitle"]}', x["bvid"], x["cid"]] for x in data["epList"]]
                 for section in data["sections"]:
@@ -429,8 +595,12 @@ class VideoParser(object):
                         self._eplist.append([f'{x["titleFormat"]} {x["longTitle"]}', x["bvid"], x["cid"]])
                 self._type = 2
         else:
-            raise Exception("不支持的参数")
+            raise ValueError("不支持的参数")
 
     def getTitle(self):
         '''获取标题'''
-        return self._title
+        return re.sub('[\/:*?"<>|]','', self._title).strip()
+
+    def __del__(self):
+        if self._isOwner:
+            self._api.close()
