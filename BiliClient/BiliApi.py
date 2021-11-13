@@ -14,7 +14,7 @@ class BiliApi(object):
     def login_by_cookie(self, cookieData: dict) -> bool:
         '''
         登录并获取账户信息
-        cookieData dict 账户cookie
+        cookieData dict 账户cookie 
         '''
         requests.utils.add_dict_to_cookiejar(self._session.cookies, cookieData)
         ret = self._session.get("https://api.bilibili.com/x/web-interface/nav").json()
