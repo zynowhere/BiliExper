@@ -35,13 +35,13 @@ if [ $tag = "latest" ];then
   rm /tmp/BiliExp.zip
   mv /tmp/*BiliExp* /tmp/BiliExp
 elif [ $tag = "newest" ];then
-  wget -O /tmp/BiliExp.zip https://github.com/happy888888/BiliExp/archive/master.zip
+  wget -O /tmp/BiliExp.zip https://archive.fastgit.org/happy888888/BiliExp/archive/master.zip
   unzip /tmp/BiliExp.zip -d /tmp
   rm /tmp/BiliExp.zip
   mv /tmp/BiliExp* /tmp/BiliExp
 else
   if [ ! -d "/BiliExp/code-cache" ]; then
-    wget -O /tmp/BiliExp.zip "https://github.com/happy888888/BiliExp/archive/$tag.zip"
+    wget -O /tmp/BiliExp.zip "https://archive.fastgit.org/happy888888/BiliExp/archive/$tag.zip"
 	unzip /tmp/BiliExp.zip -d /tmp
 	rm /tmp/BiliExp.zip
 	mv /tmp/BiliExp* /tmp/BiliExp
@@ -49,6 +49,12 @@ else
   else
     cp -r /BiliExp/code-cache /tmp/BiliExp
   fi
+fi
+
+cd /tmp/BiliExp
+
+if [ -f "./Docker/init.sh" ]; then
+  /bin/sh "./Docker/init.sh";
 fi
 
 #执行代码
@@ -59,5 +65,5 @@ if [ $daemon = "yes" ];then
     sleep 24h
   done
 else
-  python3 /tmp/BiliExp/BiliExp.py -c /BiliExp/config.json -l /BiliExp/BiliExp.log
+  /usr/local/bin/python3 BiliExp.py -c /BiliExp/config.json -l /BiliExp/BiliExp.log
 fi
