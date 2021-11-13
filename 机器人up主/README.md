@@ -28,7 +28,7 @@
 
 ## 准备环境
 
-* 1.安装requests和aiohttp库分别用于http同步请求和异步请求
+* 1.安装requests和aiohttp库分别用于http同步请求和异步请求 
     ```
 	pip install requests aiohttp
 	```
