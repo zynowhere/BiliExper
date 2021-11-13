@@ -9,7 +9,7 @@ with open('config/config.json','r',encoding='utf-8') as fp:
 url = input("请粘贴youtube视频完整链接后按回车：")
 title = input("请输入B站发布标题(直接回车默认为视频标题)：")
 tags = (input("请输入B站视频标签(必填,多个用英文逗号隔开)：")).split(',')
-tid = input("请输入B站视频分区编号(直接回车默认为生活->其他分区)：")
+tid = input("请输入B站视频分区编号(直接回车默认为生活->其他分区)：") 
 if not tid:
     tid = 174
 
