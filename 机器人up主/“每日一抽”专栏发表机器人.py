@@ -4,7 +4,7 @@ from BiliClient import Article
 import time, json, re
 
 # 本程序为B站专栏机器人，可以收集整理动态中一段时间内的抽奖消息，并整理
-# 后发布到B站专栏中，效果看例子 https://www.bilibili.com/read/cv7055733
+# 后发布到B站专栏中，效果看例子 https://www.bilibili.com/read/cv7055733 
 
 def listLott(cookie, endTime, startTime):
     "返回动态中从startTime到endTime之间的所有抽奖信息，endTime>startTime且endTime最好不要离当前时间太远"
