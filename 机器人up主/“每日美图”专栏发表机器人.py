@@ -7,7 +7,7 @@ with open('config/config.json','r',encoding='utf-8') as fp:
 
 num = 18 #只爬取18张图,可以调大，如果中间网络异常会丢失几张图，最终数量可能达不到
 
-#创建B站专栏
+#创建B站专栏 
 article = Article(configData["users"][0]["cookieDatas"], "每日美图") #创建B站专栏草稿,并设置标题
 content = Article.Content() #创建content类编写文章正文
 content.startP().add('所有图片均转载于').startB().add('网络').endB().add('，如有侵权请联系我，我会立即').startB().add('删除').endB().endP().br()
