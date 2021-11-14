@@ -69,7 +69,7 @@ def download_task(task, path: str):
                     ep_P.add(int(P)-1)
         mag.downloadIndexes(ep_P, path)
 
-    print('下载任务结束')
+     print('下载任务结束')
 
     if task[2]:
         import fitz, glob
