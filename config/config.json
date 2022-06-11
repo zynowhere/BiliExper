@@ -244,6 +244,9 @@
             // "email": ""
             // "SCKEY": ""
             /* 
+            "QYWX_KEY": "",
+            "Wecom": "", // Wecom酱api地址
+            "Wecomkey": "", // Wecom酱的SendKey
             "telegram_bot_token": "",
             "telegram_bot_chatid": "",
             "SKEY": "" */
@@ -280,7 +283,25 @@
                 "params": {
                     "c": "{msg_simple}"
                 }
-            }
+            },
+         {
+                "enable": false,
+                "name": "Wecom消息推送",
+                //"msg_separ": "\n",
+                "method": 3,
+                "url": "{Wecom}",
+                "params": {  
+                "sendkey": "{Wecomkey}",
+                "msgtype": "text",
+                "msg": "{title}\n{msg_raw}" 
+
+
+                    //"text": "{title}",
+                    //"desp": "{msg_raw}" 
+                    
+                    //}
+                    
+        }
             /*,
             {
                 "enable": false,
